@@ -1,0 +1,28 @@
+crop_model_code,crop,crop_group
+1.0,Barley,cereal
+2.0,Maize,cereal
+6.0,Sorghum,cereal
+8.0,Wheat,cereal
+10.0,Cassava,root_tuber
+12.0,Haricot Beans,legume
+13.0,Horse Beans,legume
+19.0,Red Kidney Beans,legume
+24.0,Ground Nuts,legume
+26.0,Rape Seed,oilseed
+28.0,Sunflower,oilseed
+38.0,Red Pepper,vegetable
+42.0,Bananas,fruit
+46.0,Mangos,fruit
+47.0,Oranges,fruit
+48.0,Papaya,fruit
+55.0,Garlic,vegetable
+56.0,Kale,vegetable
+61.0,Pumpkins,vegetable
+62.0,Sweet Potato,root_tuber
+71.0,Chat,specialty
+72.0,Coffee,perennial
+74.0,Enset,perennial
+75.0,Gesho,perennial
+76.0,Sugar Cane,perennial
+84.0,Avocados,fruit
+98.0,Other Root Crops,root_tuber
