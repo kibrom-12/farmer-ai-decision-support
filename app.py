@@ -138,4 +138,4 @@ def predict_crops(area_ha, lat, lon):
     yield_model, _, _ = load_models()
 
     codes = crops["s4q01b"].astype(str).tolist()
-    results =
+    results = []
