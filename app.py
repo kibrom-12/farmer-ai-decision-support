@@ -6,32 +6,23 @@ from catboost import CatBoostRegressor, CatBoostClassifier
 
 APP_DIR = Path(__file__).parent
 
-st.set_page_config(
-    page_title="AI Farmer Decision Support",
-    page_icon="🌾",
-    layout="wide"
-)
+st.set_page_config(page_title="AI Farmer Decision Support", page_icon="🌾", layout="wide")
 
 @st.cache_resource
 def load_models():
     yield_model = CatBoostRegressor()
     yield_model.load_model(str(APP_DIR / "yield_model.cbm"))
-
     rain_event_model = CatBoostClassifier()
     rain_event_model.load_model(str(APP_DIR / "rain_event_model.cbm"))
-
     rain_amount_model = CatBoostRegressor()
     rain_amount_model.load_model(str(APP_DIR / "rain_amount_model.cbm"))
-
     return yield_model, rain_event_model, rain_amount_model
-
 
 @st.cache_data
 def load_data():
     crops = pd.read_csv(APP_DIR / "candidate_crops.csv")
     rainfall = pd.read_csv(APP_DIR / "rainfall_history.csv")
     return crops, rainfall
-
 
 CROP_NAMES = {
     "1.0":"Barley", "2.0":"Maize", "6.0":"Sorghum", "8.0":"Wheat",
@@ -57,8 +48,7 @@ CROP_GROUPS = {
 
 REC_FEATURES = [
     "saq14","saq01","saq02","saq03","saq04","saq05","saq06","saq07","saq15",
-    "s4q01b",
-    "s3q02a","s3q02b","s3q03","s3q04","s3q05","s3q07","s3q08",
+    "s4q01b", "s3q02a","s3q02b","s3q03","s3q04","s3q05","s3q07","s3q08",
     "s3q12","s3q16","s3q28","s3q35","s3q36","s3q38","s3q40","s3q42",
     "dist_road","dist_market","dist_popcenter",
     "ssa_aez09","twi",
@@ -76,66 +66,65 @@ CATEGORICAL = [
     "sq4","sq5","sq6","sq7"
 ]
 
-RAIN_FEATURES = [
-    "rain_lag_1","rain_lag_2","rain_lag_3","rain_lag_7",
-    "rain_lag_14","rain_lag_21","rain_lag_28",
-    "rain_roll_3","rain_roll_7","rain_roll_14","rain_roll_28",
-    "temp_lag_1","temp_lag_7","temp_lag_14",
-    "day_of_year","month","sin_doy","cos_doy"
-]
-
-
 def fertilizer(ph):
     if ph < 5.5:
-        return (
-            "Phosphorus-containing fertilizer",
-            "Strongly acidic soil: acidity management should be considered using soil testing/local extension advice."
-        )
-
+        return ("Phosphorus-containing fertilizer", "Strongly acidic soil: acidity management should be considered using soil testing/local extension advice.")
     if ph < 6.5:
-        return (
-            "Nitrogen + phosphorus fertilizer",
-            "Acidic soil: nitrogen and phosphorus support may be appropriate."
-        )
-
+        return ("Nitrogen + phosphorus fertilizer", "Acidic soil: nitrogen and phosphorus support may be appropriate.")
     if ph <= 7.0:
-        return (
-            "Balanced NPK/compound fertilizer",
-            "Near-neutral soil: balanced nutrient management is appropriate."
-        )
-
+        return ("Balanced NPK/compound fertilizer", "Near-neutral soil: balanced nutrient management is appropriate.")
     if ph <= 7.5:
-        return (
-            "Balanced NPK/compound fertilizer",
-            "Slightly alkaline soil: monitor nutrient availability."
-        )
-
-    return (
-        "Phosphorus-containing or balanced fertilizer",
-        "Alkaline soil can affect nutrient availability; use soil-test/local guidance."
-    )
-
+        return ("Balanced NPK/compound fertilizer", "Slightly alkaline soil: monitor nutrient availability.")
+    return ("Phosphorus-containing or balanced fertilizer", "Alkaline soil can affect nutrient availability; use soil-test/local guidance.")
 
 def build_farm(area_ha, lat, lon, crop_code):
     row = {c: 0 for c in REC_FEATURES}
-
     row["s4q01b"] = str(crop_code)
     row["s3q08"] = float(area_ha) * 10000
     row["lat_mod"] = float(lat)
     row["lon_mod"] = float(lon)
-
     for c in CATEGORICAL:
         if c == "s4q01b":
             row[c] = str(crop_code)
         else:
             row[c] = "MISSING"
-
     return pd.DataFrame([row], columns=REC_FEATURES)
-
 
 def predict_crops(area_ha, lat, lon):
     crops, _ = load_data()
     yield_model, _, _ = load_models()
-
     codes = crops["s4q01b"].astype(str).tolist()
     results = []
+    for code in codes:
+        df_farm = build_farm(area_ha, lat, lon, code)
+        pred_yield = yield_model.predict(df_farm)[0]
+        results.append({
+            "code": code,
+            "crop": CROP_NAMES.get(str(code), f"Crop {code}"),
+            "predicted_yield_kg_ha": max(0, float(pred_yield))
+        })
+    res_df = pd.DataFrame(results).sort_values(by="predicted_yield_kg_ha", ascending=False)
+    return res_df
+
+# Streamlit User Interface
+st.title("🌾 AI Farmer Decision Support System")
+
+st.sidebar.header("Farm Location & Parameters")
+area_ha = st.sidebar.number_input("Farm Area (Hectares)", min_value=0.1, max_value=100.0, value=1.0)
+lat = st.sidebar.number_input("Latitude", value=9.0)
+lon = st.sidebar.number_input("Longitude", value=38.7)
+ph = st.sidebar.slider("Soil pH Level", min_value=4.0, max_value=9.0, value=6.5, step=0.1)
+
+if st.sidebar.button("Get Recommendations"):
+    st.header("Top Recommended Crop")
+    with st.spinner("Calculating predictions..."):
+        crop_preds = predict_crops(area_ha, lat, lon)
+        top_crop = crop_preds.iloc[0]
+        st.success(f"**Recommended Crop:** {top_crop['crop']} (Estimated Yield: {top_crop['predicted_yield_kg_ha']:.2f} kg/ha)")
+
+    st.subheader("Top 10 Suitable Crops")
+    st.dataframe(crop_preds.head(10)[["crop", "predicted_yield_kg_ha"]], use_container_width=True)
+
+    st.subheader("Fertilizer Advice")
+    fert_type, fert_desc = fertilizer(ph)
+    st.info(f"**Recommended Fertilizer:** {fert_type}\n\n*{fert_desc}*")
