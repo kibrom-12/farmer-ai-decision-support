@@ -11,7 +11,7 @@ APP_DIR = Path(__file__).parent
 st.set_page_config(page_title="AI Farmer Decision Support", page_icon="🌾", layout="wide")
 
 # ============================================================
-# CROP MAPPINGS & pH OPTIMALS
+# CROP MAPPINGS & TARGET FOCUS
 # ============================================================
 CROP_NAMES = {
     "1.0": "Barley", "2.0": "Maize", "3.0": "Teff", "6.0": "Sorghum", "8.0": "Wheat",
@@ -34,6 +34,9 @@ CROP_GROUPS = {
     "71.0": "Specialty",
     "72.0": "Perennial", "74.0": "Perennial", "75.0": "Perennial", "76.0": "Perennial"
 }
+
+# Explicit high-priority crop codes for Ethiopia cereal focus
+PRIORITY_CROPS = ["1.0", "2.0", "3.0", "6.0", "8.0"]  # Barley, Maize, Teff, Sorghum, Wheat
 
 # Optimal pH ranges (min_ph, max_ph) for pH penalty weighting
 CROP_PH_RANGES = {
@@ -118,10 +121,13 @@ def build_farm(area_ha, latitude, longitude, crop_code):
         df[col] = df[col].astype(str)
     return df
 
-def predict_crops(area_ha, latitude, longitude, ph_val):
+def predict_crops(area_ha, latitude, longitude, ph_val, focus_cereals_only=True):
     yield_model, _, _ = load_models()
     results = []
-    for code in CROP_CODES:
+    
+    codes_to_eval = PRIORITY_CROPS if focus_cereals_only else CROP_CODES
+    
+    for code in codes_to_eval:
         farm = build_farm(area_ha, latitude, longitude, code)
         pred_log_yield = float(yield_model.predict(farm)[0])
         base_yield = max(0.0, float(np.expm1(pred_log_yield)))
@@ -215,9 +221,11 @@ lat = st.sidebar.number_input("Latitude", value=8.54)
 lon = st.sidebar.number_input("Longitude", value=38.98)
 ph = st.sidebar.slider("Soil pH Level", min_value=4.0, max_value=9.0, value=6.5, step=0.1)
 
+cereal_only = st.sidebar.checkbox("Focus Exclusively on Major Cereal Crops", value=True)
+
 if st.sidebar.button("Run Analysis"):
     with st.spinner("Analyzing farm location data & running AI models..."):
-        crop_df = predict_crops(area_ha, lat, lon, ph)
+        crop_df = predict_crops(area_ha, lat, lon, ph, focus_cereals_only=cereal_only)
         top_crop = crop_df.iloc[0]
         rain_df = forecast_rain(days=7)
 
@@ -227,16 +235,15 @@ if st.sidebar.button("Run Analysis"):
         st.header("🏆 Recommended Crop")
         st.success(f"**{top_crop['Crop']}** — Estimated Yield: **{top_crop['Predicted Yield (kg/ha)']:.2f} kg/ha** (Decision Degree: **{top_crop['Decision Degree (%)']:.1f}%**)")
 
-        # 2. Top 10 Crop Chart
-        st.header("📊 Top 10 Suitable Crops")
-        top_10 = crop_df.head(10)
+        # 2. Major Crop Ranking Chart
+        st.header("📊 Suitable Cereal Crops Ranking")
         fig_crops = px.bar(
-            top_10,
+            crop_df,
             x="Crop",
             y="Predicted Yield (kg/ha)",
             color="Decision Degree (%)",
             text_auto=".1f",
-            title="Top 10 Crop Yield Predictions (kg/ha)",
+            title="Cereal Crop Yield Predictions (kg/ha)",
             color_continuous_scale="Greens"
         )
         fig_crops.update_layout(xaxis_title="Crop Name", yaxis_title="Yield (kg/ha)")
