@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from pathlib import Path
+import plotly.express as px
+import plotly.graph_objects as go
 from catboost import CatBoostRegressor, CatBoostClassifier
 
 APP_DIR = Path(__file__).parent
@@ -9,7 +11,7 @@ APP_DIR = Path(__file__).parent
 st.set_page_config(page_title="AI Farmer Decision Support", page_icon="🌾", layout="wide")
 
 # ============================================================
-# CROP MAPPINGS
+# CROP MAPPINGS & pH OPTIMALS
 # ============================================================
 CROP_NAMES = {
     "1.0": "Barley", "2.0": "Maize", "6.0": "Sorghum", "8.0": "Wheat",
@@ -31,6 +33,17 @@ CROP_GROUPS = {
     "42.0": "Fruit", "46.0": "Fruit", "47.0": "Fruit", "48.0": "Fruit", "84.0": "Fruit",
     "71.0": "Specialty",
     "72.0": "Perennial", "74.0": "Perennial", "75.0": "Perennial", "76.0": "Perennial"
+}
+
+# Optimal pH ranges (min_ph, max_ph) for pH penalty weighting
+CROP_PH_RANGES = {
+    "1.0": (6.0, 7.5), "2.0": (5.8, 7.0), "6.0": (5.5, 7.5), "8.0": (6.0, 7.0),
+    "10.0": (5.5, 6.5), "12.0": (6.0, 7.0), "13.0": (6.0, 7.2), "19.0": (6.0, 7.0),
+    "24.0": (5.3, 6.5), "26.0": (5.8, 7.5), "28.0": (6.0, 7.2), "38.0": (6.0, 7.0),
+    "42.0": (5.5, 6.5), "46.0": (5.5, 7.5), "47.0": (5.5, 6.5), "48.0": (6.0, 6.5),
+    "55.0": (6.0, 7.0), "56.0": (6.0, 7.5), "61.0": (6.0, 7.5), "62.0": (5.5, 6.8),
+    "71.0": (6.0, 7.0), "72.0": (5.0, 6.0), "74.0": (5.5, 6.5), "75.0": (6.0, 7.0),
+    "76.0": (6.0, 7.5), "84.0": (5.5, 6.5), "98.0": (5.5, 6.5)
 }
 
 CROP_CODES = list(CROP_NAMES.keys())
@@ -79,6 +92,17 @@ def load_rainfall():
 # ============================================================
 # PREDICTION LOGIC
 # ============================================================
+def calculate_ph_multiplier(crop_code, ph_val):
+    min_ph, max_ph = CROP_PH_RANGES.get(crop_code, (5.5, 7.5))
+    if min_ph <= ph_val <= max_ph:
+        return 1.0
+    elif ph_val < min_ph:
+        diff = min_ph - ph_val
+        return max(0.1, 1.0 - (diff * 0.35))
+    else:
+        diff = ph_val - max_ph
+        return max(0.1, 1.0 - (diff * 0.35))
+
 def build_farm(area_ha, latitude, longitude, crop_code):
     row = {f: 0.0 for f in REC_FEATURES}
     row["s4q01b"] = str(crop_code)
@@ -94,18 +118,22 @@ def build_farm(area_ha, latitude, longitude, crop_code):
         df[col] = df[col].astype(str)
     return df
 
-def predict_crops(area_ha, latitude, longitude):
+def predict_crops(area_ha, latitude, longitude, ph_val):
     yield_model, _, _ = load_models()
     results = []
     for code in CROP_CODES:
         farm = build_farm(area_ha, latitude, longitude, code)
         pred_log_yield = float(yield_model.predict(farm)[0])
-        pred_yield = max(0.0, float(np.expm1(pred_log_yield)))
+        base_yield = max(0.0, float(np.expm1(pred_log_yield)))
+        
+        ph_mult = calculate_ph_multiplier(code, ph_val)
+        adjusted_yield = base_yield * ph_mult
+        
         results.append({
             "Crop": CROP_NAMES[code],
             "Crop Code": code,
             "Crop Group": CROP_GROUPS[code],
-            "Predicted Yield (kg/ha)": pred_yield
+            "Predicted Yield (kg/ha)": adjusted_yield
         })
     df = pd.DataFrame(results)
     mn, mx = df["Predicted Yield (kg/ha)"].min(), df["Predicted Yield (kg/ha)"].max()
@@ -123,6 +151,8 @@ def forecast_rain(days=7):
     rain_vals = history["rain_sum"].astype(float).tolist()
     temp_vals = history["temperature_2m_mean"].astype(float).tolist()
     last_date = history["time"].iloc[-1]
+    
+    avg_hist_rain = np.mean([r for r in rain_vals if r > 0]) if any(r > 0 for r in rain_vals) else 2.5
     
     forecasts = []
     for step in range(1, days + 1):
@@ -144,7 +174,10 @@ def forecast_rain(days=7):
         
         prob = float(rain_event_model.predict_proba(x)[0, 1])
         pred_log = float(rain_amount_model.predict(x)[0])
-        pred_rain = max(0.0, float(np.expm1(pred_log))) if prob >= 0.5 else 0.0
+        raw_pred = max(0.0, float(np.expm1(pred_log)))
+        
+        # Apply probability multiplier to prevent total 0.0 outputs
+        pred_rain = raw_pred if prob >= 0.3 else (avg_hist_rain * prob)
         
         rain_vals.append(pred_rain)
         temp_vals.append(lag(temp_vals, 1))
@@ -185,26 +218,60 @@ ph = st.sidebar.slider("Soil pH Level", min_value=4.0, max_value=9.0, value=6.5,
 
 if st.sidebar.button("Run Analysis"):
     with st.spinner("Analyzing farm location data & running AI models..."):
-        crop_df = predict_crops(area_ha, lat, lon)
+        crop_df = predict_crops(area_ha, lat, lon, ph)
         top_crop = crop_df.iloc[0]
         rain_df = forecast_rain(days=7)
 
         st.info(f"**Location Selected:** {woreda}, {zone}, {region} ({lat}° N, {lon}° E)")
 
-        # 1. ONE Recommended Crop
+        # 1. Recommended Crop
         st.header("🏆 Recommended Crop")
         st.success(f"**{top_crop['Crop']}** — Estimated Yield: **{top_crop['Predicted Yield (kg/ha)']:.2f} kg/ha** (Decision Degree: **{top_crop['Decision Degree (%)']:.1f}%**)")
 
-        # 2. Top 10 Crop Ranking
+        # 2. Interactive Top 10 Crop Chart
         st.header("📊 Top 10 Suitable Crops")
-        st.dataframe(
-            crop_df.head(10)[["Rank", "Crop", "Crop Group", "Predicted Yield (kg/ha)", "Decision Degree (%)"]],
-            use_container_width=True
+        top_10 = crop_df.head(10)
+        fig_crops = px.bar(
+            top_10,
+            x="Crop",
+            y="Predicted Yield (kg/ha)",
+            color="Decision Degree (%)",
+            text_auto=".1f",
+            title="Top 10 Crop Yield Predictions (kg/ha)",
+            color_continuous_scale="Greens"
         )
+        fig_crops.update_layout(xaxis_title="Crop Name", yaxis_title="Yield (kg/ha)")
+        st.plotly_chart(fig_crops, use_container_width=True)
 
-        # 3. 7-Day Rainfall Forecast
+        # 3. Interactive 7-Day Rainfall Forecast Chart
         st.header("🌧️ 7-Day Rainfall Forecast")
-        st.dataframe(rain_df, use_container_width=True)
+        fig_rain = go.Figure()
+        fig_rain.add_trace(
+            go.Bar(
+                x=rain_df["Date"],
+                y=rain_df["Predicted Rain (mm)"],
+                name="Predicted Rain (mm)",
+                marker_color="#1f77b4"
+            )
+        )
+        fig_rain.add_trace(
+            go.Scatter(
+                x=rain_df["Date"],
+                y=rain_df["Rain Probability (%)"],
+                name="Probability (%)",
+                yaxis="y2",
+                mode="lines+markers",
+                line=dict(color="#ff7f0e", width=3)
+            )
+        )
+        fig_rain.update_layout(
+            title="7-Day Rainfall & Probability",
+            xaxis_title="Date",
+            yaxis=dict(title="Predicted Rain (mm)"),
+            yaxis2=dict(title="Probability (%)", overlaying="y", side="right", range=[0, 100]),
+            legend=dict(x=0.01, y=0.99)
+        )
+        st.plotly_chart(fig_rain, use_container_width=True)
 
         # 4. Fertilizer Recommendation
         st.header("🧪 Fertilizer Advice (Based on Soil pH)")
