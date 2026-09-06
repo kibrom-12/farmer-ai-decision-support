@@ -14,7 +14,7 @@ st.set_page_config(page_title="AI Farmer Decision Support", page_icon="🌾", la
 # CROP MAPPINGS & pH OPTIMALS
 # ============================================================
 CROP_NAMES = {
-    "1.0": "Barley", "2.0": "Maize", "6.0": "Sorghum", "8.0": "Wheat",
+    "1.0": "Barley", "2.0": "Maize", "3.0": "Teff", "6.0": "Sorghum", "8.0": "Wheat",
     "10.0": "Cassava", "12.0": "Haricot Beans", "13.0": "Horse Beans",
     "19.0": "Red Kidney Beans", "24.0": "Ground Nuts", "26.0": "Rape Seed",
     "28.0": "Sunflower", "38.0": "Red Pepper", "42.0": "Bananas",
@@ -25,7 +25,7 @@ CROP_NAMES = {
 }
 
 CROP_GROUPS = {
-    "1.0": "Cereal", "2.0": "Cereal", "6.0": "Cereal", "8.0": "Cereal",
+    "1.0": "Cereal", "2.0": "Cereal", "3.0": "Cereal", "6.0": "Cereal", "8.0": "Cereal",
     "10.0": "Root/Tuber", "62.0": "Root/Tuber", "98.0": "Root/Tuber",
     "12.0": "Legume", "13.0": "Legume", "19.0": "Legume", "24.0": "Legume",
     "26.0": "Oilseed", "28.0": "Oilseed",
@@ -37,7 +37,7 @@ CROP_GROUPS = {
 
 # Optimal pH ranges (min_ph, max_ph) for pH penalty weighting
 CROP_PH_RANGES = {
-    "1.0": (6.0, 7.5), "2.0": (5.8, 7.0), "6.0": (5.5, 7.5), "8.0": (6.0, 7.0),
+    "1.0": (6.0, 7.5), "2.0": (5.8, 7.0), "3.0": (5.5, 7.5), "6.0": (5.5, 7.5), "8.0": (6.0, 7.0),
     "10.0": (5.5, 6.5), "12.0": (6.0, 7.0), "13.0": (6.0, 7.2), "19.0": (6.0, 7.0),
     "24.0": (5.3, 6.5), "26.0": (5.8, 7.5), "28.0": (6.0, 7.2), "38.0": (6.0, 7.0),
     "42.0": (5.5, 6.5), "46.0": (5.5, 7.5), "47.0": (5.5, 6.5), "48.0": (6.0, 6.5),
@@ -176,7 +176,6 @@ def forecast_rain(days=7):
         pred_log = float(rain_amount_model.predict(x)[0])
         raw_pred = max(0.0, float(np.expm1(pred_log)))
         
-        # Apply probability multiplier to prevent total 0.0 outputs
         pred_rain = raw_pred if prob >= 0.3 else (avg_hist_rain * prob)
         
         rain_vals.append(pred_rain)
@@ -228,7 +227,7 @@ if st.sidebar.button("Run Analysis"):
         st.header("🏆 Recommended Crop")
         st.success(f"**{top_crop['Crop']}** — Estimated Yield: **{top_crop['Predicted Yield (kg/ha)']:.2f} kg/ha** (Decision Degree: **{top_crop['Decision Degree (%)']:.1f}%**)")
 
-        # 2. Interactive Top 10 Crop Chart
+        # 2. Top 10 Crop Chart
         st.header("📊 Top 10 Suitable Crops")
         top_10 = crop_df.head(10)
         fig_crops = px.bar(
@@ -243,35 +242,57 @@ if st.sidebar.button("Run Analysis"):
         fig_crops.update_layout(xaxis_title="Crop Name", yaxis_title="Yield (kg/ha)")
         st.plotly_chart(fig_crops, use_container_width=True)
 
-        # 3. Interactive 7-Day Rainfall Forecast Chart
+        # 3. 7-Day Rainfall Forecast
         st.header("🌧️ 7-Day Rainfall Forecast")
-        fig_rain = go.Figure()
-        fig_rain.add_trace(
-            go.Bar(
-                x=rain_df["Date"],
-                y=rain_df["Predicted Rain (mm)"],
-                name="Predicted Rain (mm)",
-                marker_color="#1f77b4"
+        
+        total_rain = rain_df["Predicted Rain (mm)"].sum()
+        max_rain_row = rain_df.loc[rain_df["Predicted Rain (mm)"].idxmax()]
+        avg_prob = rain_df["Rain Probability (%)"].mean()
+
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Total 7-Day Rainfall", f"{total_rain:.1f} mm")
+        col2.metric("Wettest Day Expected", f"{max_rain_row['Date']}", f"{max_rain_row['Predicted Rain (mm)']:.1f} mm")
+        col3.metric("Average Rain Chance", f"{avg_prob:.0f}%")
+
+        chart_col, table_col = st.columns([2, 1])
+
+        with chart_col:
+            fig_rain = go.Figure()
+            fig_rain.add_trace(
+                go.Bar(
+                    x=rain_df["Date"],
+                    y=rain_df["Predicted Rain (mm)"],
+                    name="Rainfall Volume (mm)",
+                    marker_color="#1f77b4"
+                )
             )
-        )
-        fig_rain.add_trace(
-            go.Scatter(
-                x=rain_df["Date"],
-                y=rain_df["Rain Probability (%)"],
-                name="Probability (%)",
-                yaxis="y2",
-                mode="lines+markers",
-                line=dict(color="#ff7f0e", width=3)
+            fig_rain.add_trace(
+                go.Scatter(
+                    x=rain_df["Date"],
+                    y=rain_df["Rain Probability (%)"],
+                    name="Chance of Rain (%)",
+                    yaxis="y2",
+                    mode="lines+markers",
+                    line=dict(color="#ff7f0e", width=3)
+                )
             )
-        )
-        fig_rain.update_layout(
-            title="7-Day Rainfall & Probability",
-            xaxis_title="Date",
-            yaxis=dict(title="Predicted Rain (mm)"),
-            yaxis2=dict(title="Probability (%)", overlaying="y", side="right", range=[0, 100]),
-            legend=dict(x=0.01, y=0.99)
-        )
-        st.plotly_chart(fig_rain, use_container_width=True)
+            fig_rain.update_layout(
+                title="Daily Expected Rainfall & Probability",
+                xaxis_title="Date",
+                yaxis=dict(title="Predicted Rain (mm)"),
+                yaxis2=dict(title="Chance of Rain (%)", overlaying="y", side="right", range=[0, 100]),
+                legend=dict(x=0.01, y=0.99),
+                margin=dict(l=20, r=20, t=40, b=20)
+            )
+            st.plotly_chart(fig_rain, use_container_width=True)
+
+        with table_col:
+            st.subheader("📋 Daily Breakdown")
+            st.dataframe(
+                rain_df[["Date", "Predicted Rain (mm)", "Rain Probability (%)"]],
+                hide_index=True,
+                use_container_width=True
+            )
 
         # 4. Fertilizer Recommendation
         st.header("🧪 Fertilizer Advice (Based on Soil pH)")
