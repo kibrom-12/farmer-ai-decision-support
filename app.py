@@ -56,7 +56,7 @@ CATEGORICAL_FEATURES = [
 RAIN_FEATURES = [
     "rain_lag_1", "rain_lag_2", "rain_lag_3", "rain_lag_7", "rain_lag_14", "rain_lag_21", "rain_lag_28",
     "rain_roll_3", "rain_roll_7", "rain_roll_14", "rain_roll_28",
-    "temp_lag_1", "temp_lag_7", "temp_lag_14", "day_of_year", "month", "sin_doy", "cos_doy"
+    "temp_lag_1", "temp_lag_7", "temp_lag_14", "dayofyear", "month", "sin_doy", "cos_doy"
 ]
 
 # ============================================================
@@ -138,7 +138,7 @@ def forecast_rain(days=7):
             "rain_lag_28": lag(rain_vals, 28), "rain_roll_3": roll(rain_vals, 3), "rain_roll_7": roll(rain_vals, 7),
             "rain_roll_14": roll(rain_vals, 14), "rain_roll_28": roll(rain_vals, 28),
             "temp_lag_1": lag(temp_vals, 1), "temp_lag_7": lag(temp_vals, 7), "temp_lag_14": lag(temp_vals, 14),
-            "day_of_year": doy, "month": fc_date.month,
+            "dayofyear": doy, "month": fc_date.month,
             "sin_doy": np.sin(2 * np.pi * doy / 365.25), "cos_doy": np.cos(2 * np.pi * doy / 365.25)
         }], columns=RAIN_FEATURES)
         
