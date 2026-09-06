@@ -80,14 +80,19 @@ def load_rainfall():
 # PREDICTION LOGIC
 # ============================================================
 def build_farm(area_ha, latitude, longitude, crop_code):
-    row = {f: 0 for f in REC_FEATURES}
+    row = {f: 0.0 for f in REC_FEATURES}
     row["s4q01b"] = str(crop_code)
-    row["s3q08"] = float(area_ha) * 10000
+    row["s3q08"] = float(area_ha) * 10000.0
     row["lat_mod"] = float(latitude)
     row["lon_mod"] = float(longitude)
+    
     for f in CATEGORICAL_FEATURES:
-        row[f] = str(crop_code) if f == "s4q01b" else "MISSING"
-    return pd.DataFrame([row], columns=REC_FEATURES)
+        row[f] = str(crop_code) if f == "s4q01b" else "0"
+        
+    df = pd.DataFrame([row], columns=REC_FEATURES)
+    for col in CATEGORICAL_FEATURES:
+        df[col] = df[col].astype(str)
+    return df
 
 def predict_crops(area_ha, latitude, longitude):
     yield_model, _, _ = load_models()
@@ -167,17 +172,24 @@ def fertilizer_advice(ph_val):
 # ============================================================
 st.title("🌾 AI Farmer Decision Support System")
 
-st.sidebar.header("Farm Inputs")
+st.sidebar.header("Location & Administrative Inputs")
+region = st.sidebar.text_input("Region", value="Oromia")
+zone = st.sidebar.text_input("Zone", value="East Shewa")
+woreda = st.sidebar.text_input("Woreda", value="Ada'a")
+
+st.sidebar.header("Farm Coordinates & Soil")
 area_ha = st.sidebar.number_input("Farm Area (Hectares)", min_value=0.1, max_value=100.0, value=1.0)
-lat = st.sidebar.number_input("Latitude", value=9.0)
-lon = st.sidebar.number_input("Longitude", value=38.7)
+lat = st.sidebar.number_input("Latitude", value=8.54)
+lon = st.sidebar.number_input("Longitude", value=38.98)
 ph = st.sidebar.slider("Soil pH Level", min_value=4.0, max_value=9.0, value=6.5, step=0.1)
 
 if st.sidebar.button("Run Analysis"):
-    with st.spinner("Analyzing farm data & running models..."):
+    with st.spinner("Analyzing farm location data & running AI models..."):
         crop_df = predict_crops(area_ha, lat, lon)
         top_crop = crop_df.iloc[0]
         rain_df = forecast_rain(days=7)
+
+        st.info(f"**Location Selected:** {woreda}, {zone}, {region} ({lat}° N, {lon}° E)")
 
         # 1. ONE Recommended Crop
         st.header("🏆 Recommended Crop")
