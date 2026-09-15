@@ -800,6 +800,17 @@ ph = st.sidebar.slider(
     value=6.5,
     step=0.1
 )
+if focus_cereals:
+    crop_df = crop_df[
+        crop_df["Crop Group"] == "Cereal"
+    ].copy()
+
+    crop_df = crop_df.sort_values(
+        "Decision Degree (%)",
+        ascending=False
+    ).reset_index(drop=True)
+
+    crop_df["Rank"] = crop_df.index + 1
 
 # ============================================================
 # NEW NPK SOIL INPUTS
@@ -870,6 +881,17 @@ if st.sidebar.button(
             lon,
             ph
         )
+        if focus_cereals:
+    crop_df = crop_df[
+        crop_df["Crop Group"] == "Cereal"
+    ].copy()
+
+    crop_df = crop_df.sort_values(
+        "Decision Degree (%)",
+        ascending=False
+    ).reset_index(drop=True)
+
+    crop_df["Rank"] = crop_df.index + 1
 
         top_crop = crop_df.iloc[0]
 
