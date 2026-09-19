@@ -150,13 +150,14 @@ def forecast_rain(days=7):
     
     rain_vals = history["rain_sum"].astype(float).tolist()
     temp_vals = history["temperature_2m_mean"].astype(float).tolist()
-    last_date = history["time"].iloc[-1]
+    # Presentation forecast date: September 19, 2026.
+    forecast_start = pd.Timestamp("2026-09-19")
     
     avg_hist_rain = np.mean([r for r in rain_vals if r > 0]) if any(r > 0 for r in rain_vals) else 2.5
     
     forecasts = []
-    for step in range(1, days + 1):
-        fc_date = last_date + pd.Timedelta(days=step)
+    for step in range(days):
+        fc_date = forecast_start + pd.Timedelta(days=step)
         
         def lag(v, n): return float(v[-n]) if len(v) >= n else 0.0
         def roll(v, n): return float(np.mean(v[-n:])) if len(v) >= n else float(np.mean(v))
