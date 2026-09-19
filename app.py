@@ -1,144 +1,185 @@
-from fertilizer_decision_engine import recommend_fertilizer
-
-import numpy as np
+import streamlit as st
 import pandas as pd
+import numpy as np
+from pathlib import Path
+from catboost import CatBoostRegressor, CatBoostClassifier
 from sklearn.neighbors import KNeighborsRegressor
+from sklearn.preprocessing import StandardScaler
 
 
-def _find_column(df, names):
-    for name in names:
-        if name in df.columns:
-            return name
-    return None
+# ============================================================
+# APP CONFIGURATION
+# ============================================================
+
+APP_DIR = Path(__file__).parent
+
+st.set_page_config(
+    page_title="AI Farmer Decision Support",
+    page_icon="🌾",
+    layout="wide"
+)
 
 
-def _num(value):
-    try:
-        value = float(value)
-        return value if np.isfinite(value) else np.nan
-    except Exception:
-        return np.nan
+# ============================================================
+# CROP DEFINITIONS
+# ============================================================
+
+CROP_NAMES = {
+    "1.0": "Barley",
+    "2.0": "Maize",
+    "6.0": "Sorghum",
+    "8.0": "Wheat",
+    "10.0": "Cassava",
+    "12.0": "Haricot Beans",
+    "13.0": "Horse Beans",
+    "19.0": "Red Kidney Beans",
+    "24.0": "Ground Nuts",
+    "26.0": "Rape Seed",
+    "28.0": "Sunflower",
+    "38.0": "Red Pepper",
+    "42.0": "Bananas",
+    "46.0": "Mangos",
+    "47.0": "Oranges",
+    "48.0": "Papaya",
+    "55.0": "Garlic",
+    "56.0": "Kale",
+    "61.0": "Pumpkins",
+    "62.0": "Sweet Potato",
+    "71.0": "Chat",
+    "72.0": "Coffee",
+    "74.0": "Enset",
+    "75.0": "Gesho",
+    "76.0": "Sugar Cane",
+    "84.0": "Avocados",
+    "98.0": "Other Root Crops"
+}
 
 
-def diagnose_soil(soil_pH, soil_N_pct, soil_P_ppm):
-    diagnosis = []
+CROP_GROUPS = {
+    "1.0": "Cereal",
+    "2.0": "Cereal",
+    "6.0": "Cereal",
+    "8.0": "Cereal",
 
-    if soil_pH < 5.5:
-        diagnosis.append("Soil pH is strongly acidic.")
-    elif soil_pH < 6.0:
-        diagnosis.append("Soil pH is moderately acidic.")
-    elif soil_pH <= 7.2:
-        diagnosis.append("Soil pH is in a generally favorable range.")
-    else:
-        diagnosis.append("Soil pH is alkaline.")
+    "10.0": "Root/Tuber",
+    "62.0": "Root/Tuber",
+    "98.0": "Root/Tuber",
 
-    if soil_N_pct < 0.10:
-        diagnosis.append("Total nitrogen appears low.")
-    elif soil_N_pct < 0.20:
-        diagnosis.append("Total nitrogen is in a moderate range.")
-    else:
-        diagnosis.append("Total nitrogen is relatively high.")
+    "12.0": "Legume",
+    "13.0": "Legume",
+    "19.0": "Legume",
+    "24.0": "Legume",
 
-    if soil_P_ppm < 5:
-        diagnosis.append("Available phosphorus appears very low.")
-    elif soil_P_ppm < 10:
-        diagnosis.append("Available phosphorus appears low.")
-    elif soil_P_ppm < 20:
-        diagnosis.append("Available phosphorus is in a moderate range.")
-    else:
-        diagnosis.append("Available phosphorus is relatively high.")
+    "26.0": "Oilseed",
+    "28.0": "Oilseed",
 
-    return diagnosis
+    "38.0": "Vegetable",
+    "55.0": "Vegetable",
+    "56.0": "Vegetable",
+    "61.0": "Vegetable",
 
+    "42.0": "Fruit",
+    "46.0": "Fruit",
+    "47.0": "Fruit",
+    "48.0": "Fruit",
+    "84.0": "Fruit",
 
-def _get_strategy_columns(df, strategy):
-    if strategy == "NE":
-        names = ["NE"]
-    elif strategy == "Regional":
-        names = ["Regional"]
-    else:
-        names = ["SoilTest", "Soil-Test", "Soil Test"]
+    "71.0": "Specialty",
 
-    result = {
-        "yield": None,
-        "N": None,
-        "P": None,
-    }
-
-    for prefix in names:
-        result["yield"] = result["yield"] or _find_column(
-            df,
-            [
-                f"{prefix}_yield_kg_ha",
-                f"{prefix}_yield",
-                f"{prefix} Yield",
-                f"{prefix} Yield (kg/ha)",
-            ],
-        )
-
-        result["N"] = result["N"] or _find_column(
-            df,
-            [
-                f"{prefix}_N_kg_ha",
-                f"{prefix}_N",
-                f"{prefix} N",
-            ],
-        )
-
-        result["P"] = result["P"] or _find_column(
-            df,
-            [
-                f"{prefix}_P_kg_ha",
-                f"{prefix}_P",
-                f"{prefix} P",
-            ],
-        )
-
-    return result
+    "72.0": "Perennial",
+    "74.0": "Perennial",
+    "75.0": "Perennial",
+    "76.0": "Perennial"
+}
 
 
-def recommend_fertilizer(
-    soil_pH,
-    soil_N_pct,
-    soil_P_ppm,
-    modeling_table,
-):
-    """
-    Ethiopian fertilizer strategy recommendation using
-    TAMASA fertilizer-response trial data.
+# ============================================================
+# YIELD MODEL FEATURES
+# ============================================================
 
-    Soil K is intentionally omitted because the available
-    TAMASA soil dataset does not contain complete soil-K
-    measurements.
+REC_FEATURES = [
+    "saq14",
+    "saq01",
+    "saq02",
+    "saq03",
+    "saq04",
+    "saq05",
+    "saq06",
+    "saq07",
+    "saq15",
 
-    Inputs:
-        soil_pH     : soil pH
-        soil_N_pct  : total soil nitrogen (%)
-        soil_P_ppm  : available phosphorus (ppm)
-        modeling_table : TAMASA modeling dataframe
-    """
+    "s4q01b",
 
-    df = modeling_table.copy()
+    "s3q02a",
+    "s3q02b",
+    "s3q03",
+    "s3q04",
+    "s3q05",
+    "s3q07",
+    "s3q08",
 
-    soil_pH = _num(soil_pH)
-    soil_N_pct = _num(soil_N_pct)
-    soil_P_ppm = _num(soil_P_ppm)
+    "s3q12",
+    "s3q16",
+    "s3q28",
+    "s3q35",
+    "s3q36",
+    "s3q38",
+    "s3q40",
+    "s3q42",
 
-    diagnosis = diagnose_soil(
-        soil_pH,
-        soil_N_pct,
-        soil_P_ppm,
-    )
+    "dist_road",
+    "dist_market",
+    "dist_popcenter",
 
-    # ---------------------------------------------------------
-    # Find soil columns
-    # ---------------------------------------------------------
+    "ssa_aez09",
+    "twi",
 
-    ph_col = _find_column(
-        df,
-        [
-            "soil_pH",
-            "soil_ph",
-            "pH",
-            "Soil pH",
-           
+    "sq1",
+    "sq2",
+    "sq3",
+    "sq4",
+    "sq5",
+    "sq6",
+    "sq7",
+
+    "af_bio_1",
+    "af_bio_8",
+    "af_bio_12",
+    "af_bio_13",
+    "af_bio_16",
+
+    "slopepct",
+    "srtm1k",
+    "popdensity",
+    "cropshare",
+
+    "anntot_avg",
+    "wetQ_avgstart",
+    "wetQ_avg",
+    "ndvi_avg",
+
+    "lat_mod",
+    "lon_mod"
+]
+
+
+CATEGORICAL_FEATURES = [
+    "saq14",
+    "saq01",
+    "saq02",
+    "saq06",
+    "saq07",
+    "saq15",
+    "s4q01b",
+
+    "s3q02b",
+    "s3q03",
+    "s3q04",
+    "s3q05",
+    "s3q07",
+    "s3q12",
+    "s3q16",
+    "s3q35",
+    "s3q36",
+    "s3q38",
+    "s3q40
