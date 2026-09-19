@@ -184,3 +184,38 @@ REC_FEATURES = [
 
     "dist_road",
     "dist_market",
+    "dist_popcenter",
+
+    "ssa_aez09",
+    "twi",
+
+    "sq1",
+    "sq2",
+    "sq3",
+    "sq4",
+    "sq5",
+    "sq6",
+    "sq7",
+
+    "af_bio_1",
+    "af_bio_8",
+    "af_bio_12",
+    "af_bio_13",
+    "af_bio_16",
+
+    "slopepct",
+    "srtm1k",
+    "popdensity",
+    "cropshare",
+
+    "anntot_avg",
+    "wetQ_avgstart",
+    "wetQ_avg",
+    "ndvi_avg",
+
+    "lat_mod",
+    "lon_mod"
+]
+
+    "dist_road",
+    "dist_market",
