@@ -46,7 +46,8 @@ CROP_PH_RANGES = {
     "76.0": (6.0, 7.5), "84.0": (5.5, 6.5), "98.0": (5.5, 6.5)
 }
 
-CROP_CODES = ["1.0", "2.0", "6.0", "8.0"]  # Cereal focus: Barley, Maize, Sorghum, Wheat
+ALL_CROP_CODES = list(CROP_NAMES.keys())
+CEREAL_CROP_CODES = ["1.0", "2.0", "3.0", "6.0", "8.0"]  # Barley, Maize, Teff, Sorghum, Wheat
 
 REC_FEATURES = [
     "saq14", "saq01", "saq02", "saq03", "saq04", "saq05", "saq06", "saq07", "saq15",
@@ -118,10 +119,11 @@ def build_farm(area_ha, latitude, longitude, crop_code):
         df[col] = df[col].astype(str)
     return df
 
-def predict_crops(area_ha, latitude, longitude, ph_val):
+def predict_crops(area_ha, latitude, longitude, ph_val, cereal_focus=False):
     yield_model, _, _ = load_models()
     results = []
-    for code in CROP_CODES:
+    crop_codes = CEREAL_CROP_CODES if cereal_focus else ALL_CROP_CODES
+    for code in crop_codes:
         farm = build_farm(area_ha, latitude, longitude, code)
         pred_log_yield = float(yield_model.predict(farm)[0])
         base_yield = max(0.0, float(np.expm1(pred_log_yield)))
@@ -203,7 +205,7 @@ def fertilizer_advice(ph_val):
 # ============================================================
 # USER INTERFACE
 # ============================================================
-st.title("🌾 AI Farmer Decision Support System — Cereal Focus")
+st.title("🌾 AI Farmer Decision Support System")
 
 st.sidebar.header("Location & Administrative Inputs")
 region = st.sidebar.text_input("Region", value="Oromia")
@@ -247,10 +249,17 @@ soil_k = st.sidebar.number_input(
     help="Enter available soil potassium in ppm."
 )
 
+# Optional cereal focus
+st.sidebar.subheader("🌾 Crop Selection")
+cereal_focus = st.sidebar.checkbox(
+    "Focus on cereal crops only",
+    value=False,
+    help="Checked: compare cereal crops only. Unchecked: consider all configured crops."
+)
 
 if st.sidebar.button("Run Analysis"):
     with st.spinner("Analyzing farm location data & running AI models..."):
-        crop_df = predict_crops(area_ha, lat, lon, ph)
+        crop_df = predict_crops(area_ha, lat, lon, ph, cereal_focus=cereal_focus)
         top_crop = crop_df.iloc[0]
         rain_df = forecast_rain(days=7)
 
@@ -261,7 +270,7 @@ if st.sidebar.button("Run Analysis"):
         st.success(f"**{top_crop['Crop']}** — Estimated Yield: **{top_crop['Predicted Yield (kg/ha)']:.2f} kg/ha** (Decision Degree: **{top_crop['Decision Degree (%)']:.1f}%**)")
 
         # 2. Top 10 Crop Chart
-        st.header("🌾 Cereal Crop Comparison")
+        st.header("🌾 Cereal Crop Comparison" if cereal_focus else "🌾 Crop Comparison")
         top_10 = crop_df.head(4)
         fig_crops = px.bar(
             top_10,
@@ -269,7 +278,7 @@ if st.sidebar.button("Run Analysis"):
             y="Predicted Yield (kg/ha)",
             color="Decision Degree (%)",
             text_auto=".1f",
-            title="Cereal Crop Yield Predictions (kg/ha)",
+            title=("Cereal Crop Yield Predictions (kg/ha)" if cereal_focus else "Crop Yield Predictions (kg/ha)"),
             color_continuous_scale="Greens"
         )
         fig_crops.update_layout(xaxis_title="Crop Name", yaxis_title="Yield (kg/ha)")
