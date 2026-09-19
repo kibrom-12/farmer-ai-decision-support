@@ -46,7 +46,7 @@ CROP_PH_RANGES = {
     "76.0": (6.0, 7.5), "84.0": (5.5, 6.5), "98.0": (5.5, 6.5)
 }
 
-CROP_CODES = list(CROP_NAMES.keys())
+CROP_CODES = ["1.0", "2.0", "6.0", "8.0"]  # Cereal focus: Barley, Maize, Sorghum, Wheat
 
 REC_FEATURES = [
     "saq14", "saq01", "saq02", "saq03", "saq04", "saq05", "saq06", "saq07", "saq15",
@@ -203,7 +203,7 @@ def fertilizer_advice(ph_val):
 # ============================================================
 # USER INTERFACE
 # ============================================================
-st.title("🌾 AI Farmer Decision Support System")
+st.title("🌾 AI Farmer Decision Support System — Cereal Focus")
 
 st.sidebar.header("Location & Administrative Inputs")
 region = st.sidebar.text_input("Region", value="Oromia")
@@ -261,15 +261,15 @@ if st.sidebar.button("Run Analysis"):
         st.success(f"**{top_crop['Crop']}** — Estimated Yield: **{top_crop['Predicted Yield (kg/ha)']:.2f} kg/ha** (Decision Degree: **{top_crop['Decision Degree (%)']:.1f}%**)")
 
         # 2. Top 10 Crop Chart
-        st.header("📊 Top 10 Suitable Crops")
-        top_10 = crop_df.head(10)
+        st.header("🌾 Cereal Crop Comparison")
+        top_10 = crop_df.head(4)
         fig_crops = px.bar(
             top_10,
             x="Crop",
             y="Predicted Yield (kg/ha)",
             color="Decision Degree (%)",
             text_auto=".1f",
-            title="Top 10 Crop Yield Predictions (kg/ha)",
+            title="Cereal Crop Yield Predictions (kg/ha)",
             color_continuous_scale="Greens"
         )
         fig_crops.update_layout(xaxis_title="Crop Name", yaxis_title="Yield (kg/ha)")
