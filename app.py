@@ -287,7 +287,7 @@ def build_farm(
         for feature in REC_FEATURES
     }
 
-    farm.update({
+       farm.update({
         "saq14": "1",
         "saq01": region,
         "saq02": zone,
@@ -300,4 +300,46 @@ def build_farm(
 
         "s3q02a": lat,
         "s3q02b": lon,
-        "s3q03": cropping
+        "s3q03": cropping_method,
+        "s3q04": cropping_method,
+        "s3q05": fallow,
+        "s3q07": "1",
+
+        "s3q08": area_ha * 10000.0,
+
+        "s3q12": "1",
+        "s3q16": "1",
+
+        "s3q28": slope,
+
+        "s3q35": irrigation,
+        "s3q36": "1",
+        "s3q38": "1",
+        "s3q40": "1",
+        "s3q42": "1",
+
+        "dist_road": 10.0,
+        "dist_market": 20.0,
+        "dist_popcenter": 10.0,
+
+        "twi": 5.0,
+        "slopepct": slope,
+        "srtm1k": 1000.0,
+        "popdensity": 100.0,
+
+        "cropshare": crop_share,
+
+        "anntot_avg": annual_rainfall,
+        "wetQ_avgstart": annual_rainfall * 0.25,
+        "wetQ_avg": annual_rainfall * 0.75,
+
+        "ndvi_avg": 0.5,
+
+        "lat_mod": lat,
+        "lon_mod": lon,
+    })
+
+    return pd.DataFrame(
+        [farm],
+        columns=REC_FEATURES
+    )
