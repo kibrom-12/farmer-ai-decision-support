@@ -215,6 +215,38 @@ lat = st.sidebar.number_input("Latitude", value=8.54)
 lon = st.sidebar.number_input("Longitude", value=38.98)
 ph = st.sidebar.slider("Soil pH Level", min_value=4.0, max_value=9.0, value=6.5, step=0.1)
 
+# Soil NPK inputs
+st.sidebar.subheader("🧪 Soil NPK Values")
+
+soil_n = st.sidebar.number_input(
+    "Nitrogen (N, %)",
+    min_value=0.0,
+    max_value=5.0,
+    value=0.15,
+    step=0.01,
+    format="%.2f",
+    help="Enter total soil nitrogen as a percentage."
+)
+
+soil_p = st.sidebar.number_input(
+    "Phosphorus (P, ppm)",
+    min_value=0.0,
+    max_value=200.0,
+    value=7.0,
+    step=0.1,
+    help="Enter available soil phosphorus in ppm."
+)
+
+soil_k = st.sidebar.number_input(
+    "Potassium (K, ppm)",
+    min_value=0.0,
+    max_value=1000.0,
+    value=100.0,
+    step=1.0,
+    help="Enter available soil potassium in ppm."
+)
+
+
 if st.sidebar.button("Run Analysis"):
     with st.spinner("Analyzing farm location data & running AI models..."):
         crop_df = predict_crops(area_ha, lat, lon, ph)
@@ -293,6 +325,15 @@ if st.sidebar.button("Run Analysis"):
                 hide_index=True,
                 use_container_width=True
             )
+
+        # Soil NPK summary
+        st.header("🧪 Soil Nutrient Values")
+
+        npk1, npk2, npk3, npk4 = st.columns(4)
+        npk1.metric("Soil pH", f"{ph:.1f}")
+        npk2.metric("Nitrogen (N)", f"{soil_n:.2f}%")
+        npk3.metric("Phosphorus (P)", f"{soil_p:.1f} ppm")
+        npk4.metric("Potassium (K)", f"{soil_k:.1f} ppm")
 
         # 4. Fertilizer Recommendation
         st.header("🧪 Fertilizer Advice (Based on Soil pH)")
