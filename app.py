@@ -1,4 +1,4 @@
-# fertilizer_decision_engine.py
+from fertilizer_decision_engine import recommend_fertilizer
 
 import numpy as np
 import pandas as pd
