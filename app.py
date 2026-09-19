@@ -182,4 +182,4 @@ CATEGORICAL_FEATURES = [
     "s3q35",
     "s3q36",
     "s3q38",
-    "s3q40
+    "s3q40",
