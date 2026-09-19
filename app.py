@@ -2,20 +2,18 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from pathlib import Path
+
 import plotly.express as px
 import plotly.graph_objects as go
 
 from catboost import CatBoostRegressor, CatBoostClassifier
 
-# NEW: Ethiopian fertilizer decision engine
 from fertilizer_decision_engine import recommend_fertilizer
 
 
 # ============================================================
-# APP CONFIGURATION
+# STREAMLIT CONFIGURATION
 # ============================================================
-
-APP_DIR = Path(__file__).parent
 
 st.set_page_config(
     page_title="AI Farmer Decision Support",
@@ -23,44 +21,42 @@ st.set_page_config(
     layout="wide"
 )
 
+APP_DIR = Path(__file__).parent
+
 
 # ============================================================
-# CROP MAPPINGS
+# CROP NAMES
+# IMPORTANT:
+# These are the crop codes supported by the finalized
+# yield model.
 # ============================================================
 
 CROP_NAMES = {
     "1.0": "Barley",
     "2.0": "Maize",
-    "3.0": "Teff",
     "6.0": "Sorghum",
     "8.0": "Wheat",
-
     "10.0": "Cassava",
     "12.0": "Haricot Beans",
     "13.0": "Horse Beans",
     "19.0": "Red Kidney Beans",
     "24.0": "Ground Nuts",
-
     "26.0": "Rape Seed",
     "28.0": "Sunflower",
     "38.0": "Red Pepper",
-
     "42.0": "Bananas",
     "46.0": "Mangos",
     "47.0": "Oranges",
     "48.0": "Papaya",
-
     "55.0": "Garlic",
     "56.0": "Kale",
     "61.0": "Pumpkins",
     "62.0": "Sweet Potato",
-
     "71.0": "Chat",
     "72.0": "Coffee",
     "74.0": "Enset",
     "75.0": "Gesho",
     "76.0": "Sugar Cane",
-
     "84.0": "Avocados",
     "98.0": "Other Root Crops"
 }
@@ -73,7 +69,6 @@ CROP_NAMES = {
 CROP_GROUPS = {
     "1.0": "Cereal",
     "2.0": "Cereal",
-    "3.0": "Cereal",
     "6.0": "Cereal",
     "8.0": "Cereal",
 
@@ -109,10 +104,13 @@ CROP_GROUPS = {
 }
 
 
+# ============================================================
+# CROP pH RANGES
+# ============================================================
+
 CROP_PH_RANGES = {
     "1.0": (6.0, 7.5),
     "2.0": (5.8, 7.0),
-    "3.0": (5.5, 7.5),
     "6.0": (5.5, 7.5),
     "8.0": (6.0, 7.0),
 
@@ -186,723 +184,3 @@ REC_FEATURES = [
 
     "dist_road",
     "dist_market",
-    "dist_popcenter",
-
-    "ssa_aez09",
-    "twi",
-
-    "sq1",
-    "sq2",
-    "sq3",
-    "sq4",
-    "sq5",
-    "sq6",
-    "sq7",
-
-    "af_bio_1",
-    "af_bio_8",
-    "af_bio_12",
-    "af_bio_13",
-    "af_bio_16",
-
-    "slopepct",
-    "srtm1k",
-    "popdensity",
-    "cropshare",
-
-    "anntot_avg",
-    "wetQ_avgstart",
-    "wetQ_avg",
-    "ndvi_avg",
-
-    "lat_mod",
-    "lon_mod"
-]
-
-
-CATEGORICAL_FEATURES = [
-    "saq14",
-    "saq01",
-    "saq02",
-    "saq06",
-    "saq07",
-    "saq15",
-    "s4q01b",
-
-    "s3q02b",
-    "s3q03",
-    "s3q04",
-    "s3q05",
-    "s3q07",
-    "s3q12",
-    "s3q16",
-    "s3q35",
-    "s3q36",
-    "s3q38",
-    "s3q40",
-    "s3q42",
-
-    "ssa_aez09",
-
-    "sq1",
-    "sq2",
-    "sq3",
-    "sq4",
-    "sq5",
-    "sq6",
-    "sq7"
-]
-
-
-# ============================================================
-# RAINFALL FEATURES
-# ============================================================
-
-RAIN_FEATURES = [
-    "rain_lag_1",
-    "rain_lag_2",
-    "rain_lag_3",
-    "rain_lag_7",
-    "rain_lag_14",
-    "rain_lag_21",
-    "rain_lag_28",
-
-    "rain_roll_3",
-    "rain_roll_7",
-    "rain_roll_14",
-    "rain_roll_28",
-
-    "temp_lag_1",
-    "temp_lag_7",
-    "temp_lag_14",
-
-    "dayofyear",
-    "month",
-    "sin_doy",
-    "cos_doy"
-]
-
-
-# ============================================================
-# LOAD MODELS
-# ============================================================
-
-@st.cache_resource
-def load_models():
-
-    yield_model = CatBoostRegressor()
-
-    yield_model.load_model(
-        str(APP_DIR / "yield_model.cbm")
-    )
-
-    rain_event_model = CatBoostClassifier()
-
-    rain_event_model.load_model(
-        str(APP_DIR / "rain_event_model.cbm")
-    )
-
-    rain_amount_model = CatBoostRegressor()
-
-    rain_amount_model.load_model(
-        str(APP_DIR / "rain_amount_model.cbm")
-    )
-
-    return (
-        yield_model,
-        rain_event_model,
-        rain_amount_model
-    )
-
-
-# ============================================================
-# LOAD RAINFALL DATA
-# ============================================================
-
-@st.cache_data
-def load_rainfall():
-
-    path = APP_DIR / "rainfall_history.csv"
-
-    return pd.read_csv(path)
-
-
-# ============================================================
-# LOAD FERTILIZER DATA
-# ============================================================
-
-@st.cache_data
-def load_fertilizer_data():
-
-    path = APP_DIR / "TAMASA_fertilizer_modeling_table.csv"
-
-    return pd.read_csv(path)
-
-
-# ============================================================
-# pH MULTIPLIER FOR CROP RANKING
-# ============================================================
-
-def calculate_ph_multiplier(
-    crop_code,
-    ph_val
-):
-
-    min_ph, max_ph = CROP_PH_RANGES.get(
-        crop_code,
-        (5.5, 7.5)
-    )
-
-    if min_ph <= ph_val <= max_ph:
-
-        return 1.0
-
-    elif ph_val < min_ph:
-
-        difference = min_ph - ph_val
-
-        return max(
-            0.1,
-            1.0 - (difference * 0.35)
-        )
-
-    else:
-
-        difference = ph_val - max_ph
-
-        return max(
-            0.1,
-            1.0 - (difference * 0.35)
-        )
-
-
-# ============================================================
-# BUILD FARM INPUT FOR YIELD MODEL
-# ============================================================
-
-def build_farm(
-    area_ha,
-    latitude,
-    longitude,
-    crop_code
-):
-
-    row = {
-        feature: 0.0
-        for feature in REC_FEATURES
-    }
-
-    row["s4q01b"] = str(crop_code)
-
-    row["s3q08"] = (
-        float(area_ha) * 10000.0
-    )
-
-    row["lat_mod"] = float(latitude)
-
-    row["lon_mod"] = float(longitude)
-
-    for feature in CATEGORICAL_FEATURES:
-
-        if feature == "s4q01b":
-
-            row[feature] = str(crop_code)
-
-        else:
-
-            row[feature] = "0"
-
-    df = pd.DataFrame(
-        [row],
-        columns=REC_FEATURES
-    )
-
-    for column in CATEGORICAL_FEATURES:
-
-        df[column] = (
-            df[column]
-            .fillna("MISSING")
-            .astype(str)
-        )
-
-    return df
-
-
-# ============================================================
-# CROP PREDICTION
-# ============================================================
-
-def predict_crops(
-    area_ha,
-    latitude,
-    longitude,
-    ph_val,
-    focus_cereals=False
-):
-
-    yield_model, _, _ = load_models()
-
-    results = []
-
-    codes_to_use = CROP_CODES.copy()
-
-    if focus_cereals:
-
-        codes_to_use = [
-            code
-            for code in CROP_CODES
-            if CROP_GROUPS.get(code) == "Cereal"
-        ]
-
-    for code in codes_to_use:
-
-        farm = build_farm(
-            area_ha,
-            latitude,
-            longitude,
-            code
-        )
-
-        predicted_log_yield = float(
-            yield_model.predict(farm)[0]
-        )
-
-        base_yield = max(
-            0.0,
-            float(
-                np.expm1(
-                    predicted_log_yield
-                )
-            )
-        )
-
-        ph_multiplier = calculate_ph_multiplier(
-            code,
-            ph_val
-        )
-
-        adjusted_yield = (
-            base_yield *
-            ph_multiplier
-        )
-
-        results.append({
-
-            "Crop": CROP_NAMES[code],
-
-            "Crop Code": code,
-
-            "Crop Group": CROP_GROUPS[code],
-
-            "Predicted Yield (kg/ha)":
-                adjusted_yield
-        })
-
-    df = pd.DataFrame(results)
-
-    minimum_yield = (
-        df["Predicted Yield (kg/ha)"].min()
-    )
-
-    maximum_yield = (
-        df["Predicted Yield (kg/ha)"].max()
-    )
-
-    if maximum_yield > minimum_yield:
-
-        df["Decision Degree (%)"] = (
-            (
-                (
-                    df["Predicted Yield (kg/ha)"]
-                    - minimum_yield
-                )
-                /
-                (
-                    maximum_yield
-                    - minimum_yield
-                )
-            )
-            * 100
-        ).clip(
-            0,
-            100
-        ).round(1)
-
-    else:
-
-        df["Decision Degree (%)"] = 100.0
-
-    df = df.sort_values(
-        "Decision Degree (%)",
-        ascending=False
-    ).reset_index(drop=True)
-
-    df["Rank"] = (
-        df.index + 1
-    )
-
-    return df
-
-
-# ============================================================
-# RAINFALL FORECAST
-# ============================================================
-
-def forecast_rain(days=7):
-
-    history = load_rainfall()
-
-    _, rain_event_model, rain_amount_model = (
-        load_models()
-    )
-
-    history["time"] = pd.to_datetime(
-        history["time"]
-    )
-
-    history = (
-        history
-        .sort_values("time")
-        .reset_index(drop=True)
-    )
-
-    rain_values = (
-        history["rain_sum"]
-        .astype(float)
-        .tolist()
-    )
-
-    temperature_values = (
-        history["temperature_2m_mean"]
-        .astype(float)
-        .tolist()
-    )
-
-    last_date = (
-        history["time"].iloc[-1]
-    )
-
-    positive_rain = [
-        value
-        for value in rain_values
-        if value > 0
-    ]
-
-    if positive_rain:
-
-        average_historical_rain = (
-            float(np.mean(positive_rain))
-        )
-
-    else:
-
-        average_historical_rain = 2.5
-
-    forecasts = []
-
-    for step in range(
-        1,
-        days + 1
-    ):
-
-        forecast_date = (
-            last_date
-            +
-            pd.Timedelta(days=step)
-        )
-
-        def lag(values, number):
-
-            if len(values) >= number:
-
-                return float(
-                    values[-number]
-                )
-
-            return 0.0
-
-        def rolling_mean(
-            values,
-            number
-        ):
-
-            if len(values) >= number:
-
-                return float(
-                    np.mean(
-                        values[-number:]
-                    )
-                )
-
-            return float(
-                np.mean(values)
-            )
-
-        day_of_year = (
-            forecast_date.dayofyear
-        )
-
-        x = pd.DataFrame(
-            [{
-
-                "rain_lag_1":
-                    lag(rain_values, 1),
-
-                "rain_lag_2":
-                    lag(rain_values, 2),
-
-                "rain_lag_3":
-                    lag(rain_values, 3),
-
-                "rain_lag_7":
-                    lag(rain_values, 7),
-
-                "rain_lag_14":
-                    lag(rain_values, 14),
-
-                "rain_lag_21":
-                    lag(rain_values, 21),
-
-                "rain_lag_28":
-                    lag(rain_values, 28),
-
-                "rain_roll_3":
-                    rolling_mean(
-                        rain_values,
-                        3
-                    ),
-
-                "rain_roll_7":
-                    rolling_mean(
-                        rain_values,
-                        7
-                    ),
-
-                "rain_roll_14":
-                    rolling_mean(
-                        rain_values,
-                        14
-                    ),
-
-                "rain_roll_28":
-                    rolling_mean(
-                        rain_values,
-                        28
-                    ),
-
-                "temp_lag_1":
-                    lag(
-                        temperature_values,
-                        1
-                    ),
-
-                "temp_lag_7":
-                    lag(
-                        temperature_values,
-                        7
-                    ),
-
-                "temp_lag_14":
-                    lag(
-                        temperature_values,
-                        14
-                    ),
-
-                "dayofyear":
-                    day_of_year,
-
-                "month":
-                    forecast_date.month,
-
-                "sin_doy":
-                    np.sin(
-                        2
-                        * np.pi
-                        * day_of_year
-                        / 365.25
-                    ),
-
-                "cos_doy":
-                    np.cos(
-                        2
-                        * np.pi
-                        * day_of_year
-                        / 365.25
-                    )
-
-            }],
-            columns=RAIN_FEATURES
-        )
-
-        probability = float(
-            rain_event_model
-            .predict_proba(x)[0, 1]
-        )
-
-        predicted_log_amount = float(
-            rain_amount_model.predict(x)[0]
-        )
-
-        raw_prediction = max(
-            0.0,
-            float(
-                np.expm1(
-                    predicted_log_amount
-                )
-            )
-        )
-
-        if probability >= 0.3:
-
-            predicted_rain = raw_prediction
-
-        else:
-
-            predicted_rain = (
-                average_historical_rain
-                * probability
-            )
-
-        rain_values.append(
-            predicted_rain
-        )
-
-        temperature_values.append(
-            lag(
-                temperature_values,
-                1
-            )
-        )
-
-        forecasts.append({
-
-            "Date":
-                forecast_date.strftime(
-                    "%Y-%m-%d"
-                ),
-
-            "Rain Probability (%)":
-                round(
-                    probability * 100,
-                    1
-                ),
-
-            "Predicted Rain (mm)":
-                round(
-                    predicted_rain,
-                    2
-                )
-        })
-
-    return pd.DataFrame(
-        forecasts
-    )
-
-
-# ============================================================
-# APPLICATION TITLE
-# ============================================================
-
-st.title(
-    "🌾 AI Farmer Decision Support System"
-)
-
-st.caption(
-    "AI crop recommendation • yield prediction • "
-    "rainfall forecasting • fertilizer decision support"
-)
-
-
-# ============================================================
-# SIDEBAR
-# ============================================================
-
-st.sidebar.header(
-    "📍 Location & Farm Information"
-)
-
-region = st.sidebar.text_input(
-    "Region",
-    value="Oromia"
-)
-
-zone = st.sidebar.text_input(
-    "Zone",
-    value="East Shewa"
-)
-
-woreda = st.sidebar.text_input(
-    "Woreda",
-    value="Ada'a"
-)
-
-area_ha = st.sidebar.number_input(
-    "Farm Area (Hectares)",
-    min_value=0.1,
-    max_value=100.0,
-    value=1.0,
-    step=0.1
-)
-
-lat = st.sidebar.number_input(
-    "Latitude",
-    min_value=-90.0,
-    max_value=90.0,
-    value=8.54,
-    step=0.01
-)
-
-lon = st.sidebar.number_input(
-    "Longitude",
-    min_value=-180.0,
-    max_value=180.0,
-    value=38.98,
-    step=0.01
-)
-
-
-# ============================================================
-# SOIL INPUTS
-# ============================================================
-
-st.sidebar.header(
-    "🧪 Soil Measurements"
-)
-
-ph = st.sidebar.slider(
-    "Soil pH",
-    min_value=4.0,
-    max_value=9.0,
-    value=6.5,
-    step=0.1
-)
-
-soil_n = st.sidebar.number_input(
-    "Total Nitrogen (N, %)",
-    min_value=0.0,
-    max_value=2.0,
-    value=0.15,
-    step=0.01,
-    format="%.2f",
-    help=(
-        "Total soil nitrogen as percent (%). "
-        "This matches the units used in the "
-        "TAMASA fertilizer modeling data."
-    )
-)
-
-soil_p = st.sidebar.number_input(
-    "Available Phosphorus (P, ppm)",
-    min_value=0.0,
-    max_value=200.0,
-    value=7.0,
-    step=0.1,
-    help=(
-        "Available soil phosphorus in ppm."
-    )
-)
-
-st.sidebar.caption(
-    "The current fertilizer AI uses soil pH, "
-    "total N and available P. Soil K is omitted "
-    "because complete soil-K measurements were
