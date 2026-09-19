@@ -171,7 +171,6 @@ CATEGORICAL_FEATURES = [
     "saq07",
     "saq15",
     "s4q01b",
-
     "s3q02b",
     "s3q03",
     "s3q04",
@@ -183,3 +182,13 @@ CATEGORICAL_FEATURES = [
     "s3q36",
     "s3q38",
     "s3q40",
+    "s3q42",
+    "ssa_aez09",
+    "sq1",
+    "sq2",
+    "sq3",
+    "sq4",
+    "sq5",
+    "sq6",
+    "sq7",
+]
