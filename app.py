@@ -217,7 +217,6 @@ area_ha = st.sidebar.number_input("Farm Area (Hectares)", min_value=0.1, max_val
 lat = st.sidebar.number_input("Latitude", value=8.54)
 lon = st.sidebar.number_input("Longitude", value=38.98)
 ph = st.sidebar.slider("Soil pH Level", min_value=4.0, max_value=9.0, value=6.5, step=0.1)
-# Validate Ethiopia coordinates
 if not (-4.9 <= latitude <= 14.9):
     st.sidebar.error("Latitude must be within Ethiopia.")
     st.stop()
