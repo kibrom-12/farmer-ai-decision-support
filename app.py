@@ -144,26 +144,52 @@ def predict_crops(area_ha, latitude, longitude, ph_val, cereal_focus=False):
     df["Rank"] = df.index + 1
     return df
 
-def forecast_rain(days=7):
-    history = load_rainfall()
+def forecast_rain(latitude, longitude, days=7):
+    """Forecast rainfall using the trained AI model with location-specific
+    recent weather history from Open-Meteo."""
+    import requests
+
+    if not (3.3 <= float(latitude) <= 14.9):
+        raise ValueError("Latitude must be within Ethiopia (approximately 3.3 to 14.9).")
+    if not (33.0 <= float(longitude) <= 48.0):
+        raise ValueError("Longitude must be within Ethiopia (approximately 33.0 to 48.0).")
+
     _, rain_event_model, rain_amount_model = load_models()
-    history["time"] = pd.to_datetime(history["time"])
-    history = history.sort_values("time").reset_index(drop=True)
-    
+
+    # Get recent weather for the farmer's actual coordinates.
+    end_date = pd.Timestamp("2026-09-18")
+    start_date = end_date - pd.Timedelta(days=60)
+    url = "https://archive-api.open-meteo.com/v1/archive"
+    params = {
+        "latitude": float(latitude),
+        "longitude": float(longitude),
+        "start_date": start_date.strftime("%Y-%m-%d"),
+        "end_date": end_date.strftime("%Y-%m-%d"),
+        "daily": "rain_sum,temperature_2m_mean",
+        "timezone": "auto"
+    }
+    response = requests.get(url, params=params, timeout=30)
+    response.raise_for_status()
+    weather = response.json()
+
+    history = pd.DataFrame({
+        "time": pd.to_datetime(weather["daily"]["time"]),
+        "rain_sum": weather["daily"]["rain_sum"],
+        "temperature_2m_mean": weather["daily"]["temperature_2m_mean"]
+    }).dropna().sort_values("time").reset_index(drop=True)
+
     rain_vals = history["rain_sum"].astype(float).tolist()
     temp_vals = history["temperature_2m_mean"].astype(float).tolist()
-    # Presentation forecast date: September 19, 2026.
     forecast_start = pd.Timestamp("2026-09-19")
-    
     avg_hist_rain = np.mean([r for r in rain_vals if r > 0]) if any(r > 0 for r in rain_vals) else 2.5
-    
+
     forecasts = []
     for step in range(days):
         fc_date = forecast_start + pd.Timedelta(days=step)
-        
+
         def lag(v, n): return float(v[-n]) if len(v) >= n else 0.0
         def roll(v, n): return float(np.mean(v[-n:])) if len(v) >= n else float(np.mean(v))
-        
+
         doy = fc_date.dayofyear
         x = pd.DataFrame([{
             "rain_lag_1": lag(rain_vals, 1), "rain_lag_2": lag(rain_vals, 2), "rain_lag_3": lag(rain_vals, 3),
@@ -174,13 +200,12 @@ def forecast_rain(days=7):
             "dayofyear": doy, "month": fc_date.month,
             "sin_doy": np.sin(2 * np.pi * doy / 365.25), "cos_doy": np.cos(2 * np.pi * doy / 365.25)
         }], columns=RAIN_FEATURES)
-        
+
         prob = float(rain_event_model.predict_proba(x)[0, 1])
         pred_log = float(rain_amount_model.predict(x)[0])
         raw_pred = max(0.0, float(np.expm1(pred_log)))
-        
         pred_rain = raw_pred if prob >= 0.3 else (avg_hist_rain * prob)
-        
+
         rain_vals.append(pred_rain)
         temp_vals.append(lag(temp_vals, 1))
         forecasts.append({
@@ -216,7 +241,6 @@ st.sidebar.header("Farm Coordinates & Soil")
 area_ha = st.sidebar.number_input("Farm Area (Hectares)", min_value=0.1, max_value=100.0, value=1.0)
 lat = st.sidebar.number_input("Latitude", value=8.54)
 lon = st.sidebar.number_input("Longitude", value=38.98)
-
 ph = st.sidebar.slider("Soil pH Level", min_value=4.0, max_value=9.0, value=6.5, step=0.1)
 
 # Soil NPK inputs
@@ -260,9 +284,17 @@ cereal_focus = st.sidebar.checkbox(
 
 if st.sidebar.button("Run Analysis"):
     with st.spinner("Analyzing farm location data & running AI models..."):
+        # Validate the farmer's coordinates before running the analysis.
+        if not (3.3 <= lat <= 14.9):
+            st.error("Latitude must be within Ethiopia (approximately 3.3 to 14.9).")
+            st.stop()
+        if not (33.0 <= lon <= 48.0):
+            st.error("Longitude must be within Ethiopia (approximately 33.0 to 48.0).")
+            st.stop()
+
         crop_df = predict_crops(area_ha, lat, lon, ph, cereal_focus=cereal_focus)
         top_crop = crop_df.iloc[0]
-        rain_df = forecast_rain(days=7)
+        rain_df = forecast_rain(lat, lon, days=7)
 
         st.info(f"**Location Selected:** {woreda}, {zone}, {region} ({lat}° N, {lon}° E)")
 
