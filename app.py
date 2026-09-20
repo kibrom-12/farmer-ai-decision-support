@@ -216,13 +216,7 @@ st.sidebar.header("Farm Coordinates & Soil")
 area_ha = st.sidebar.number_input("Farm Area (Hectares)", min_value=0.1, max_value=100.0, value=1.0)
 lat = st.sidebar.number_input("Latitude", value=8.54)
 lon = st.sidebar.number_input("Longitude", value=38.98)
-if not (-4.9 <= latitude <= 14.9):
-    st.sidebar.error("Latitude must be within Ethiopia.")
-    st.stop()
 
-if not (33.0 <= longitude <= 48.0):
-    st.sidebar.error("Longitude must be within Ethiopia.")
-    st.stop()
 ph = st.sidebar.slider("Soil pH Level", min_value=4.0, max_value=9.0, value=6.5, step=0.1)
 
 # Soil NPK inputs
