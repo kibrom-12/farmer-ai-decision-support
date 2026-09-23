@@ -392,7 +392,7 @@ if st.sidebar.button("Run Analysis"):
 
  # 4. TAMASA Fertilizer Recommendation
 st.header("🧪 Fertilizer Recommendation")
-n"]
+
 try:
     fert_result = fertilizer_response(ph, soil_n, soil_p)
 
