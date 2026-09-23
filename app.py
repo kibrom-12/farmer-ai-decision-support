@@ -226,7 +226,9 @@ def fertilizer_advice(ph_val):
         return "Balanced NPK fertilizer", "Slightly alkaline soil: monitor micronutrient availability."
     else:
         return "Phosphorus or balanced fertilizer", "Alkaline soil: consult local agricultural guidance for optimal yield."
-
+@st.cache_data
+def load_tamasa_data():
+    return load_tamasa_table(APP_DIR)
 # ============================================================
 # USER INTERFACE
 # ============================================================
