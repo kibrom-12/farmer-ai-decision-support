@@ -215,18 +215,19 @@ def forecast_rain(latitude, longitude, days=7):
         })
     return pd.DataFrame(forecasts)
 
-def fertilizer_advice(ph_val):
-    if ph_val < 5.5:
-        return "Phosphorus-containing fertilizer", "Strongly acidic soil: acidity management should be considered using soil testing."
-    elif ph_val < 6.5:
-        return "Nitrogen + phosphorus fertilizer", "Acidic soil: nitrogen and phosphorus support recommended."
-    elif ph_val <= 7.0:
-        return "Balanced NPK fertilizer", "Near-neutral soil: balanced nutrient management is optimal."
-    elif ph_val <= 7.5:
-        return "Balanced NPK fertilizer", "Slightly alkaline soil: monitor micronutrient availability."
-    else:
-        return "Phosphorus or balanced fertilizer", "Alkaline soil: consult local agricultural guidance for optimal yield."
+@st.cache_data
+def load_tamasa_data():
+    return load_tamasa_table(APP_DIR)
 
+
+def fertilizer_response(ph_val, soil_n, soil_p):
+    tamasa_table = load_tamasa_data()
+    return recommend_fertilizer(
+        ph_val,
+        soil_n,
+        soil_p,
+        tamasa_table
+    )
 # ============================================================
 # USER INTERFACE
 # ============================================================
