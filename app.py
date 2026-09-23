@@ -401,10 +401,16 @@ try:
 
     strategy_name = fert_result["recommendation"]
     predicted_gain = best_strategy["Predicted Gain vs Control (kg/ha)"]
+farmer_recommendation = fert_result["farmer_recommendation"]
+farmer_reason = fert_result["farmer_reason"]
+   st.success(
+    f"**Recommended Strategy: {strategy_name}**"
+)
 
-    st.success(
-        f"**Recommended Strategy: {strategy_name}**"
-    )
+st.info(
+    f"**Farmer Fertilizer Recommendation:** {farmer_recommendation}\n\n"
+    f"**Reason:** {farmer_reason}"
+)
 
     st.info(
         f"**Why this recommendation?**\n\n"
