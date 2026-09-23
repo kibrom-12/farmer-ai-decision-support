@@ -390,26 +390,33 @@ if st.sidebar.button("Run Analysis"):
         npk3.metric("Phosphorus (P)", f"{soil_p:.1f} ppm")
         npk4.metric("Potassium (K)", f"{soil_k:.1f} ppm")
 
-      # 4. TAMASA Fertilizer Recommendation
-st.header("🧪 TAMASA-Based Fertilizer Recommendation")
+ # 4. TAMASA Fertilizer Recommendation
+st.header("🧪 Fertilizer Recommendation")
 
 try:
     fert_result = fertilizer_response(ph, soil_n, soil_p)
 
+    # Best strategy selected by the TAMASA decision engine
+    best_strategy = fert_result["ranking"].iloc[0]
+
+    strategy_name = fert_result["recommendation"]
+    predicted_gain = best_strategy["Predicted Gain vs Control (kg/ha)"]
+
     st.success(
-        f"**Recommended Strategy:** {fert_result['recommendation']}"
+        f"**Recommended Strategy: {strategy_name}**"
     )
 
     st.info(
-        f"**Confidence:** {fert_result['confidence']}\n\n"
-        f"**Soil Diagnosis:** {fert_result['diagnosis']}"
-    )
-
-    st.caption(
-        "TAMASA provides an Ethiopian fertilizer-response baseline "
-        "based on similar trial conditions. This is a data-driven "
-        "experimental recommendation, not a guaranteed exact prescription."
+        f"**Why this recommendation?**\n\n"
+        f"The system selected **{strategy_name}** because it is the "
+        f"highest-ranked fertilizer strategy for the current soil "
+        f"conditions. The model estimates a yield improvement of "
+        f"approximately **{predicted_gain:.0f} kg/ha** compared with "
+        f"the control condition.\n\n"
+        f"**Soil-based reasoning:** {fert_result['diagnosis']}"
     )
 
 except Exception as e:
-    st.error(f"TAMASA fertilizer recommendation could not be calculated: {e}")
+    st.error(
+        f"Fertilizer recommendation could not be calculated: {e}"
+    )
