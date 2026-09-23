@@ -215,19 +215,18 @@ def forecast_rain(latitude, longitude, days=7):
         })
     return pd.DataFrame(forecasts)
 
-@st.cache_data
-def load_tamasa_data():
-    return load_tamasa_table(APP_DIR)
+def fertilizer_advice(ph_val):
+    if ph_val < 5.5:
+        return "Phosphorus-containing fertilizer", "Strongly acidic soil: acidity management should be considered using soil testing."
+    elif ph_val < 6.5:
+        return "Nitrogen + phosphorus fertilizer", "Acidic soil: nitrogen and phosphorus support recommended."
+    elif ph_val <= 7.0:
+        return "Balanced NPK fertilizer", "Near-neutral soil: balanced nutrient management is optimal."
+    elif ph_val <= 7.5:
+        return "Balanced NPK fertilizer", "Slightly alkaline soil: monitor micronutrient availability."
+    else:
+        return "Phosphorus or balanced fertilizer", "Alkaline soil: consult local agricultural guidance for optimal yield."
 
-
-def fertilizer_response(ph_val, soil_n, soil_p):
-    tamasa_table = load_tamasa_data()
-    return recommend_fertilizer(
-        ph_val,
-        soil_n,
-        soil_p,
-        tamasa_table
-    )
 # ============================================================
 # USER INTERFACE
 # ============================================================
@@ -379,73 +378,7 @@ if st.sidebar.button("Run Analysis"):
         npk3.metric("Phosphorus (P)", f"{soil_p:.1f} ppm")
         npk4.metric("Potassium (K)", f"{soil_k:.1f} ppm")
 
-    # 4. TAMASA Fertilizer Recommendation
-st.header("🧪 TAMASA-Based Fertilizer Recommendation")
-
-try:
-    fert_result = fertilizer_response(ph, soil_n, soil_p)
-
-    rec = fert_result["ranking"].iloc[0]
-
-    c1, c2, c3 = st.columns(3)
-
-    c1.metric(
-        "Recommended Strategy",
-        fert_result["recommendation"]
-    )
-
-    c2.metric(
-        "Confidence",
-        fert_result["confidence"]
-    )
-
-    gain = rec["Predicted Gain vs Control (kg/ha)"]
-
-    c3.metric(
-        "Estimated Yield Gain",
-        f"{gain:.0f} kg/ha"
-    )
-
-    st.info(
-        f"**Soil diagnosis:**\n\n"
-        f"{fert_result['diagnosis']}"
-    )
-
-    st.subheader("📊 TAMASA Fertilizer Strategy Comparison")
-
-    display_rank = fert_result["ranking"].copy()
-
-    display_rank.insert(
-        0,
-        "Rank",
-        range(1, len(display_rank) + 1)
-    )
-
-    for col in [
-        "N Rate (kg/ha)",
-        "P Rate (kg/ha)",
-        "K Rate (kg/ha)",
-        "Predicted Yield (kg/ha)",
-        "Predicted Gain vs Control (kg/ha)"
-    ]:
-        display_rank[col] = display_rank[col].round(1)
-
-    st.dataframe(
-        display_rank,
-        hide_index=True,
-        use_container_width=True
-    )
-
-    st.caption(
-        "TAMASA provides an Ethiopian fertilizer-response baseline "
-        "based on similar trial conditions. The displayed rates are "
-        "data-driven estimates, not guaranteed exact prescriptions. "
-        "Measured soil K is not used for soil matching because complete "
-        "soil-K observations are unavailable in this TAMASA dataset."
-    )
-
-except Exception as e:
-    st.error(
-        f"TAMASA fertilizer recommendation could not be calculated: {e}"
-    )
-
+        # 4. Fertilizer Recommendation
+        st.header("🧪 Fertilizer Advice (Based on Soil pH)")
+        fert, desc = fertilizer_advice(ph)
+        st.info(f"**Recommended Fertilizer:** {fert}\n\n*{desc}*")
