@@ -5,7 +5,7 @@ from pathlib import Path
 import plotly.express as px
 import plotly.graph_objects as go
 from catboost import CatBoostRegressor, CatBoostClassifier
-
+from fertilizer_decision_engine_tamasa import recommend_fertilizer, load_tamasa_table
 APP_DIR = Path(__file__).parent
 
 st.set_page_config(page_title="AI Farmer Decision Support", page_icon="🌾", layout="wide")
