@@ -229,6 +229,14 @@ def fertilizer_advice(ph_val):
 @st.cache_data
 def load_tamasa_data():
     return load_tamasa_table(APP_DIR)
+    def fertilizer_response(ph_val, soil_n, soil_p):
+    tamasa_table = load_tamasa_data()
+    return recommend_fertilizer(
+        ph_val,
+        soil_n,
+        soil_p,
+        tamasa_table
+    )
 # ============================================================
 # USER INTERFACE
 # ============================================================
