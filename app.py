@@ -392,14 +392,14 @@ if st.sidebar.button("Run Analysis"):
 
  # 4. TAMASA Fertilizer Recommendation
 st.header("🧪 Fertilizer Recommendation")
-
+n"]
 try:
     fert_result = fertilizer_response(ph, soil_n, soil_p)
 
     # Best strategy selected by the TAMASA decision engine
     best_strategy = fert_result["ranking"].iloc[0]
 
-     strategy_name = fert_result["recommendation"]
+    strategy_name = fert_result["recommendation"]
     predicted_gain = best_strategy["Predicted Gain vs Control (kg/ha)"]
 
     farmer_recommendation = fert_result["farmer_recommendation"]
@@ -419,10 +419,11 @@ try:
         f"The system selected **{strategy_name}** because it is the "
         f"highest-ranked fertilizer strategy for the current soil "
         f"conditions. The model estimates a yield improvement of "
-        f"approximately **{predicted_gain:.0f} kg/ha** compared with "
+        f"approximately **{predicted_gain:,.0f} kg/ha** compared with "
         f"the control condition.\n\n"
         f"**Soil-based reasoning:** {fert_result['diagnosis']}"
     )
+
 
 except Exception as e:
     st.error(
