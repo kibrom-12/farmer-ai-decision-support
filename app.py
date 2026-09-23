@@ -390,7 +390,26 @@ if st.sidebar.button("Run Analysis"):
         npk3.metric("Phosphorus (P)", f"{soil_p:.1f} ppm")
         npk4.metric("Potassium (K)", f"{soil_k:.1f} ppm")
 
-        # 4. Fertilizer Recommendation
-        st.header("🧪 Fertilizer Advice (Based on Soil pH)")
-        fert, desc = fertilizer_advice(ph)
-        st.info(f"**Recommended Fertilizer:** {fert}\n\n*{desc}*")
+      # 4. TAMASA Fertilizer Recommendation
+st.header("🧪 TAMASA-Based Fertilizer Recommendation")
+
+try:
+    fert_result = fertilizer_response(ph, soil_n, soil_p)
+
+    st.success(
+        f"**Recommended Strategy:** {fert_result['recommendation']}"
+    )
+
+    st.info(
+        f"**Confidence:** {fert_result['confidence']}\n\n"
+        f"**Soil Diagnosis:** {fert_result['diagnosis']}"
+    )
+
+    st.caption(
+        "TAMASA provides an Ethiopian fertilizer-response baseline "
+        "based on similar trial conditions. This is a data-driven "
+        "experimental recommendation, not a guaranteed exact prescription."
+    )
+
+except Exception as e:
+    st.error(f"TAMASA fertilizer recommendation could not be calculated: {e}")
