@@ -448,4 +448,4 @@ except Exception as e:
     st.error(
         f"TAMASA fertilizer recommendation could not be calculated: {e}"
     )
-        st.info(f"**Recommended Fertilizer:** {fert}\n\n*{desc}*")
+
