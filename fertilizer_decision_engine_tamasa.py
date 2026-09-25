@@ -123,7 +123,6 @@ def recommend_fertilizer(soil_pH, soil_N_pct, soil_P_ppm, modeling_table):
     ranking = pd.DataFrame(rows).sort_values("Predicted Gain vs Control (kg/ha)", ascending=False, na_position="last").reset_index(drop=True)
     recommendation = str(ranking.iloc[0]["Fertilizer Strategy"])
       
-    )
     return {
         "recommendation": recommendation,
         "confidence": "Low — experimental TAMASA baseline",
