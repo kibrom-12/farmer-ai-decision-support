@@ -42,7 +42,37 @@ def diagnose_soil(pH, N, P):
     out.append("Available P is relatively low." if P < 10 else "Available P is intermediate." if P < 20 else "Available P is relatively high compared with many TAMASA observations.")
     out.append("Measured soil K is not used for matching because complete soil-K observations are unavailable in this TAMASA table.")
     return out
+def farmer_fertilizer_recommendation(soil_N_pct, soil_P_ppm):
+    """
+    Converts TAMASA soil diagnosis into a farmer-facing
+    nutrient recommendation.
+    """
 
+    n_low = soil_N_pct < 0.10
+    p_low = soil_P_ppm < 10
+
+    if n_low and p_low:
+        return (
+            "N + P fertilizer",
+            "Both soil nitrogen and available phosphorus are relatively low."
+        )
+
+    if p_low:
+        return (
+            "P-containing fertilizer",
+            "Available phosphorus is relatively low, so phosphorus should be included in the fertilizer strategy."
+        )
+
+    if n_low:
+        return (
+            "N-containing fertilizer",
+            "Total soil nitrogen is relatively low, so nitrogen should be included in the fertilizer strategy."
+        )
+
+    return (
+        "TAMASA-selected fertilizer strategy",
+        "Soil nitrogen and available phosphorus are not classified as low under the current TAMASA thresholds."
+    )
 
 def _predict_gain(df, strategy, x):
     cols = SOIL_FEATURES + [GAIN_COLUMNS[strategy]]
